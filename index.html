@@ -427,18 +427,9 @@
         <div class="panel">
             <label style="font-size: 12px; color: var(--text-dim);">Data do Trabalho</label>
             <input type="date" id="man-date">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <div>
-                    <label style="font-size: 12px; color: var(--text-dim);">Entrada</label>
-                    <input type="time" id="man-in" value="04:00">
-                </div>
-                <div>
-                    <label style="font-size: 12px; color: var(--text-dim);">Saída</label>
-                    <input type="time" id="man-out">
-                </div>
-            </div>
-            <label style="font-size: 12px; color: var(--text-dim);">Tipo de Dia</label>
-            <select id="man-type">
+            
+            <label style="font-size: 12px; color: var(--text-dim);">Tipo de Dia / Ajuste</label>
+            <select id="man-type" onchange="toggleManualFields()">
                 <option value="normal">Segunda a Sexta</option>
                 <option value="sabado">Sábado (60%)</option>
                 <option value="feriado">Feriado (100%)</option>
@@ -448,6 +439,23 @@
                 <option value="banco_rem_manual">Ajuste Banco de Horas (- Remover)</option>
                 <option value="folga">Folga / Domingo</option>
             </select>
+
+            <div id="time-inputs-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div>
+                    <label style="font-size: 12px; color: var(--text-dim);">Entrada</label>
+                    <input type="time" id="man-in" value="04:00">
+                </div>
+                <div>
+                    <label style="font-size: 12px; color: var(--text-dim);">Saída</label>
+                    <input type="time" id="man-out">
+                </div>
+            </div>
+
+            <div id="hour-input-container" class="hidden">
+                <label style="font-size: 12px; color: var(--text-dim);">Quantidade de Horas (Ex: 10 ou 5.5)</label>
+                <input type="number" step="0.1" id="man-hours" placeholder="Digite as horas para ajustar...">
+            </div>
+
             <button class="btn-main btn-save" onclick="addManual()">Salvar no Histórico</button>
         </div>
     </section>
@@ -460,11 +468,11 @@
             <div class="filter-grid">
                 <div>
                     <label style="font-size: 10px; color: var(--text-dim);">DIAS ÚTEIS (SEG-SEX)</label>
-                    <input type="number" id="input-dias-uteis" value="22" onchange="render()">
+                    <input type="number" id="input-dias-uteis" value="22" onchange="updateCycleConfig()">
                 </div>
                 <div>
                     <label style="font-size: 10px; color: var(--text-dim);">DSR (DOMINGOS/FERIADOS)</label>
-                    <input type="number" id="input-folgas" value="4" onchange="render()">
+                    <input type="number" id="input-folgas" value="4" onchange="updateCycleConfig()">
                 </div>
             </div>
         </div>
@@ -491,24 +499,18 @@
     // --- LÓGICA DE INSTALAÇÃO DO PWA (Botão) ---
     let deferredPrompt;
     window.addEventListener('beforeinstallprompt', (e) => {
-        // Impede que o Chrome mostre o mini-infobar nativo
         e.preventDefault();
-        // Guarda o evento para acionarmos depois
         deferredPrompt = e;
-        // Mostra o botão no menu
         const btnInstall = document.getElementById('btn-install');
         if(btnInstall) btnInstall.classList.remove('hidden');
     });
 
     function instalarApp() {
-        toggleMainMenu(); // Fecha o menu para a notificação do navegador ficar visível
+        toggleMainMenu(); 
         if (deferredPrompt) {
-            // Mostra o prompt oficial de instalação
             deferredPrompt.prompt();
-            // Espera a resposta do usuário
             deferredPrompt.userChoice.then((choiceResult) => {
                 if (choiceResult.outcome === 'accepted') {
-                    console.log('App instalado com sucesso');
                     document.getElementById('btn-install').classList.add('hidden');
                 }
                 deferredPrompt = null;
@@ -527,9 +529,9 @@
     let db = JSON.parse(localStorage.getItem('megag_v3_data')) || [];
     let config = JSON.parse(localStorage.getItem('megag_v3_config')) || null;
     let activePonto = JSON.parse(localStorage.getItem('megag_v3_active')) || null;
+    let cycleConfigs = JSON.parse(localStorage.getItem('megag_v3_cycle_config')) || {};
     let timerTick;
 
-    // Função para pegar a data de hoje no formato correto de forma segura
     const getHojeFormatado = () => {
         const now = new Date();
         const ano = now.getFullYear();
@@ -544,15 +546,12 @@
         } else {
             document.getElementById('setup-overlay').classList.add('hidden');
             document.getElementById('user-welcome').innerText = `Olá, ${config.name.split(' ')[0]}`;
-            
-            // ATUALIZADO PARA PUCH AQUI:
             document.getElementById('user-role-badge').innerText = `Puch • ${config.role}`;
             
             document.getElementById('setup-name').value = config.name;
             document.getElementById('setup-role').value = config.role;
             if(config.baseSalary) document.getElementById('setup-salary').value = config.baseSalary;
             
-            // Popula os campos da meta se existirem
             if(config.goalType) document.getElementById('setup-goal-type').value = config.goalType;
             if(config.goalValue) document.getElementById('setup-goal-value').value = config.goalValue;
 
@@ -565,7 +564,6 @@
         }
     }
 
-    // --- FUNÇÕES DE CONTROLE DE MENUS ---
     function toggleMainMenu() {
         document.getElementById('main-menu-overlay').classList.toggle('hidden');
     }
@@ -602,7 +600,17 @@
         }
     }
 
-    // --- SALVAMENTO DE CONFIGURAÇÕES E LANÇAMENTOS ---
+    function toggleManualFields() {
+        const type = document.getElementById('man-type').value;
+        if (type === 'banco_add_manual' || type === 'banco_rem_manual') {
+            document.getElementById('time-inputs-container').classList.add('hidden');
+            document.getElementById('hour-input-container').classList.remove('hidden');
+        } else {
+            document.getElementById('time-inputs-container').classList.remove('hidden');
+            document.getElementById('hour-input-container').classList.add('hidden');
+        }
+    }
+
     function saveSetup() {
         const name = document.getElementById('setup-name').value;
         const role = document.getElementById('setup-role').value;
@@ -635,7 +643,6 @@
         const type = document.getElementById('fin-type').value;
         const name = document.getElementById('fin-name').value;
         
-        // Tratamento da vírgula brasileira para ponto universal
         let valStr = document.getElementById('fin-value').value;
         if(valStr.includes(',') && valStr.includes('.')) {
             valStr = valStr.replace(/\./g, '').replace(',', '.');
@@ -663,17 +670,17 @@
         switchTab('tab-history', document.querySelectorAll('.tab-btn')[2]);
     }
 
-    // --- FUNÇÕES DE EXPORTAR E IMPORTAR DADOS ---
     function exportarDados() {
         const dadosCompletos = {
             data: localStorage.getItem('megag_v3_data'),
             config: localStorage.getItem('megag_v3_config'),
-            active: localStorage.getItem('megag_v3_active')
+            active: localStorage.getItem('megag_v3_active'),
+            cycleConfig: localStorage.getItem('megag_v3_cycle_config')
         };
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dadosCompletos));
         const a = document.createElement('a');
         a.href = dataStr;
-        a.download = "megag_backup.json";
+        a.download = "puch_backup.json";
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -689,6 +696,7 @@
                 if (importado.data) localStorage.setItem('megag_v3_data', importado.data);
                 if (importado.config) localStorage.setItem('megag_v3_config', importado.config);
                 if (importado.active) localStorage.setItem('megag_v3_active', importado.active);
+                if (importado.cycleConfig) localStorage.setItem('megag_v3_cycle_config', importado.cycleConfig);
                 
                 alert("Dados importados com sucesso! O aplicativo será recarregado.");
                 location.reload();
@@ -699,7 +707,6 @@
         reader.readAsText(file);
     }
 
-    // Cálculos de Impostos (Tabelas 2026)
     function calcINSS(bruto) {
         let imposto = 0;
         const faixas = [
@@ -752,7 +759,7 @@
             let key = getCycleKey(d.toISOString().split('T')[0]);
             
             let [y, mStr] = key.split('-');
-            let mNum = parseInt(mStr); // 1 a 12
+            let mNum = parseInt(mStr); 
             
             let currentMName = months[mNum - 1];
             let prevMName = months[mNum - 2 < 0 ? 11 : mNum - 2];
@@ -769,26 +776,44 @@
         const targetCycle = document.getElementById('cycle-filter').value;
         const [year, month] = targetCycle.split('-').map(Number);
         
-        const dataFim = new Date(year, month - 1, 15);
-        const dataInicio = new Date(year, month - 2, 16);
-        
-        let diasUteis = 0;
-        let diasFolga = 0;
-        
-        let dataAuxiliar = new Date(dataInicio);
-        while (dataAuxiliar <= dataFim) {
-            const diaDaSemana = dataAuxiliar.getDay();
+        // Verifica se há configuração salva para este ciclo
+        if (cycleConfigs[targetCycle]) {
+            document.getElementById('input-dias-uteis').value = cycleConfigs[targetCycle].uteis;
+            document.getElementById('input-folgas').value = cycleConfigs[targetCycle].folgas;
+        } else {
+            const dataFim = new Date(year, month - 1, 15);
+            const dataInicio = new Date(year, month - 2, 16);
             
-            if (diaDaSemana === 0) {
-                diasFolga++;
-            } else if (diaDaSemana >= 1 && diaDaSemana <= 5) {
-                diasUteis++;
+            let diasUteis = 0;
+            let diasFolga = 0;
+            
+            let dataAuxiliar = new Date(dataInicio);
+            while (dataAuxiliar <= dataFim) {
+                const diaDaSemana = dataAuxiliar.getDay();
+                
+                if (diaDaSemana === 0) {
+                    diasFolga++;
+                } else if (diaDaSemana >= 1 && diaDaSemana <= 5) {
+                    diasUteis++;
+                }
+                dataAuxiliar.setDate(dataAuxiliar.getDate() + 1);
             }
-            dataAuxiliar.setDate(dataAuxiliar.getDate() + 1);
+            
+            document.getElementById('input-dias-uteis').value = diasUteis;
+            document.getElementById('input-folgas').value = diasFolga;
         }
         
-        document.getElementById('input-dias-uteis').value = diasUteis;
-        document.getElementById('input-folgas').value = diasFolga;
+        render();
+    }
+
+    // Função que salva manualmente o ajuste de DSR
+    function updateCycleConfig() {
+        const targetCycle = document.getElementById('cycle-filter').value;
+        const uteis = parseFloat(document.getElementById('input-dias-uteis').value) || 0;
+        const folgas = parseFloat(document.getElementById('input-folgas').value) || 0;
+        
+        cycleConfigs[targetCycle] = { uteis, folgas };
+        localStorage.setItem('megag_v3_cycle_config', JSON.stringify(cycleConfigs));
         
         render();
     }
@@ -907,11 +932,18 @@
         } else if(reg.type === 'banco') {
             b = -meta;
         } else if (reg.type === 'banco_add_manual' || reg.type === 'banco_rem_manual') {
-            const tIn = new Date(`${reg.date}T${reg.in}`);
-            let tOut = new Date(`${reg.date}T${reg.out}`);
-            if (tOut < tIn) tOut.setDate(tOut.getDate() + 1);
             
-            liq = (tOut - tIn) / 3600000;
+            // Nova lógica: usa as horas digitadas diretamente
+            if (reg.hours !== undefined && reg.hours !== null) {
+                liq = reg.hours;
+            } else {
+                // Mantém compatibilidade com registros antigos caso existam
+                const tIn = new Date(`${reg.date}T${reg.in}`);
+                let tOut = new Date(`${reg.date}T${reg.out}`);
+                if (tOut < tIn) tOut.setDate(tOut.getDate() + 1);
+                liq = (tOut - tIn) / 3600000;
+            }
+
             if (reg.type === 'banco_add_manual') b = liq;
             if (reg.type === 'banco_rem_manual') b = -liq;
         }
@@ -922,7 +954,6 @@
     function render() {
         const targetCycle = document.getElementById('cycle-filter').value;
         
-        // --- ATUALIZA O RÓTULO DO CICLO ATUAL NO CABEÇALHO ---
         const [tYear, tMonth] = targetCycle.split('-').map(Number);
         const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
         const mAtual = monthNames[tMonth - 1];
@@ -934,7 +965,6 @@
 
         const cycleItems = db.filter(reg => getCycleKey(reg.date) === targetCycle);
 
-        // Banco Global
         let bancoTotalGlobal = 0;
         db.forEach(reg => {
             if(reg.type === 'bonus' || reg.type === 'desconto') return;
@@ -942,7 +972,6 @@
             bancoTotalGlobal += c.b;
         });
 
-        // 1. Cálculos de Ponto Fixo do Ciclo
         let total60 = 0, total100 = 0, total200 = 0, totalTkt = 0, totalNoturnoH = 0;
         const currentRates = RATES[config.role];
 
@@ -966,7 +995,6 @@
         const variaveisPonto = money60 + money100 + money200 + moneyNoturnoTotal + valorDSR;
         const brutoPonto = baseSalary + variaveisPonto;
 
-        // 2. Cálculo dos Bônus Lançados Manualmente
         let totalBonus = 0;
         cycleItems.forEach(reg => {
             if (reg.type === 'bonus') {
@@ -984,7 +1012,6 @@
         const totalVariaveis = variaveisPonto + totalBonus;
         const brutoTotalCompleto = baseSalary + totalVariaveis; 
 
-        // 3. Cálculo dos Descontos Manuais
         let totalDescontoManual = 0;
         cycleItems.forEach(reg => {
             if (reg.type === 'desconto') {
@@ -999,17 +1026,14 @@
             }
         });
 
-        // 4. Cálculos Governamentais e Líquido Final
         const descINSS = calcINSS(brutoTotalCompleto);
         const descIRRF = calcIRRF(brutoTotalCompleto - descINSS);
         const totalDescontosGerais = descINSS + descIRRF + totalDescontoManual;
         const liquido = brutoTotalCompleto - totalDescontosGerais;
 
-        // --- ATUALIZAÇÃO DA INTERFACE (UI) ---
         document.getElementById('dash-net').innerText = liquido.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
         document.getElementById('dash-bruto').innerText = `Bruto: ${brutoTotalCompleto.toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}`;
         
-        // --- ATUALIZAÇÃO DA META MENSAL ---
         const goalContainer = document.getElementById('goal-container');
         if (config.goalType && config.goalType !== 'none' && config.goalValue > 0) {
             goalContainer.classList.remove('hidden');
@@ -1062,7 +1086,6 @@
         document.getElementById('dash-h100').innerText = total100.toFixed(1) + "h";
         document.getElementById('dash-h200').innerText = total200.toFixed(1) + "h";
 
-        // --- RENDERIZAÇÃO DO HISTÓRICO ---
         cycleItems.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(reg => {
             if (reg.type === 'bonus' || reg.type === 'desconto') {
                 const isBonus = reg.type === 'bonus';
@@ -1097,8 +1120,8 @@
                 if(c.horasNoturnas > 0) tagHtml += `<span class="tag tag-noturno">Noturno: ${c.horasNoturnas.toFixed(1)}h</span>`;
 
                 let labelText = `${reg.in} ➔ ${reg.out}`;
-                if (reg.type === 'banco_add_manual') labelText = `Ajuste Banco (+): ${reg.in} ➔ ${reg.out}`;
-                if (reg.type === 'banco_rem_manual') labelText = `Ajuste Banco (-): ${reg.in} ➔ ${reg.out}`;
+                if (reg.type === 'banco_add_manual') labelText = `Ajuste Banco (+): ${reg.hours ? reg.hours + 'h' : reg.in + ' ➔ ' + reg.out}`;
+                if (reg.type === 'banco_rem_manual') labelText = `Ajuste Banco (-): ${reg.hours ? reg.hours + 'h' : reg.in + ' ➔ ' + reg.out}`;
                 if (reg.type === 'banco') labelText = `Uso de Banco (Folga)`;
 
                 listDiv.innerHTML += `
@@ -1119,14 +1142,35 @@
 
     function addManual() {
         const date = document.getElementById('man-date').value;
-        const hIn = document.getElementById('man-in').value;
-        const hOut = document.getElementById('man-out').value;
         const type = document.getElementById('man-type').value;
-        if(!date || !hOut) return alert("Por favor, preencha a data e a hora de saída.");
-        db.push({ id: Date.now(), date, in: hIn, out: hOut, type });
+        
+        let hIn = "";
+        let hOut = "";
+        let valHours = null;
+
+        // Se for ajuste de banco, captura apenas as horas
+        if (type === 'banco_add_manual' || type === 'banco_rem_manual') {
+            valHours = parseFloat(document.getElementById('man-hours').value);
+            if (!date || isNaN(valHours) || valHours <= 0) {
+                return alert("Por favor, preencha a data e a quantidade de horas maior que zero.");
+            }
+        } else {
+            // Se for registro normal, captura entrada e saída
+            hIn = document.getElementById('man-in').value;
+            hOut = document.getElementById('man-out').value;
+            if(!date || !hOut) {
+                return alert("Por favor, preencha a data e a hora de saída.");
+            }
+        }
+
+        db.push({ id: Date.now(), date, in: hIn, out: hOut, type, hours: valHours });
         localStorage.setItem('megag_v3_data', JSON.stringify(db));
         render();
         switchTab('tab-history', document.querySelectorAll('.tab-btn')[2]);
+        
+        // Limpa os campos após salvar
+        document.getElementById('man-out').value = "";
+        document.getElementById('man-hours').value = "";
     }
 
     function removeReg(id) {
