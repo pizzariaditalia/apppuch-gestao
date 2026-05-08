@@ -776,7 +776,6 @@
         const targetCycle = document.getElementById('cycle-filter').value;
         const [year, month] = targetCycle.split('-').map(Number);
         
-        // Verifica se há configuração salva para este ciclo
         if (cycleConfigs[targetCycle]) {
             document.getElementById('input-dias-uteis').value = cycleConfigs[targetCycle].uteis;
             document.getElementById('input-folgas').value = cycleConfigs[targetCycle].folgas;
@@ -806,7 +805,6 @@
         render();
     }
 
-    // Função que salva manualmente o ajuste de DSR
     function updateCycleConfig() {
         const targetCycle = document.getElementById('cycle-filter').value;
         const uteis = parseFloat(document.getElementById('input-dias-uteis').value) || 0;
@@ -933,19 +931,20 @@
             b = -meta;
         } else if (reg.type === 'banco_add_manual' || reg.type === 'banco_rem_manual') {
             
-            // Nova lógica: usa as horas digitadas diretamente
-            if (reg.hours !== undefined && reg.hours !== null) {
-                liq = reg.hours;
-            } else {
-                // Mantém compatibilidade com registros antigos caso existam
+            // Lógica ajustada: Pega APENAS as horas digitadas, sem calcular relógio
+            let h = reg.hours;
+            
+            // Fallback caso seja um registro muito antigo que ainda usava relógio
+            if (h === undefined || h === null) {
                 const tIn = new Date(`${reg.date}T${reg.in}`);
                 let tOut = new Date(`${reg.date}T${reg.out}`);
                 if (tOut < tIn) tOut.setDate(tOut.getDate() + 1);
-                liq = (tOut - tIn) / 3600000;
+                h = (tOut - tIn) / 3600000;
             }
 
-            if (reg.type === 'banco_add_manual') b = liq;
-            if (reg.type === 'banco_rem_manual') b = -liq;
+            liq = h;
+            if (reg.type === 'banco_add_manual') b = h;
+            if (reg.type === 'banco_rem_manual') b = -h;
         }
 
         return { liq, b, e60, e100, e200, tkt, horasNoturnas };
@@ -1119,9 +1118,10 @@
                 if(c.b !== 0) tagHtml += `<span class="tag tag-banco">Banco: ${c.b.toFixed(1)}h</span>`;
                 if(c.horasNoturnas > 0) tagHtml += `<span class="tag tag-noturno">Noturno: ${c.horasNoturnas.toFixed(1)}h</span>`;
 
+                // LÓGICA DE RENDERIZAÇÃO DO TÍTULO CORRIGIDA
                 let labelText = `${reg.in} ➔ ${reg.out}`;
-                if (reg.type === 'banco_add_manual') labelText = `Ajuste Banco (+): ${reg.hours ? reg.hours + 'h' : reg.in + ' ➔ ' + reg.out}`;
-                if (reg.type === 'banco_rem_manual') labelText = `Ajuste Banco (-): ${reg.hours ? reg.hours + 'h' : reg.in + ' ➔ ' + reg.out}`;
+                if (reg.type === 'banco_add_manual') labelText = `Ajuste Banco (+)`;
+                if (reg.type === 'banco_rem_manual') labelText = `Ajuste Banco (-)`;
                 if (reg.type === 'banco') labelText = `Uso de Banco (Folga)`;
 
                 listDiv.innerHTML += `
@@ -1148,14 +1148,15 @@
         let hOut = "";
         let valHours = null;
 
-        // Se for ajuste de banco, captura apenas as horas
         if (type === 'banco_add_manual' || type === 'banco_rem_manual') {
             valHours = parseFloat(document.getElementById('man-hours').value);
             if (!date || isNaN(valHours) || valHours <= 0) {
                 return alert("Por favor, preencha a data e a quantidade de horas maior que zero.");
             }
+            // Força nulo para nunca mais tentar desenhar relógio nessa opção
+            hIn = null; 
+            hOut = null;
         } else {
-            // Se for registro normal, captura entrada e saída
             hIn = document.getElementById('man-in').value;
             hOut = document.getElementById('man-out').value;
             if(!date || !hOut) {
@@ -1168,7 +1169,6 @@
         render();
         switchTab('tab-history', document.querySelectorAll('.tab-btn')[2]);
         
-        // Limpa os campos após salvar
         document.getElementById('man-out').value = "";
         document.getElementById('man-hours').value = "";
     }
