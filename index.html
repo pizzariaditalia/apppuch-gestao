@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MegaG - Controle de Ponto</title>
+    <title>Puch - Gestão de Folha</title>
     
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#0b0e16">
-    <link rel="apple-touch-icon" href="./icon.png">
+    <link rel="apple-touch-icon" href="./puch-icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
@@ -338,7 +338,7 @@
 <div class="container">
     <header>
         <div>
-            <div class="brand-pill" id="user-role-badge">MegaG Alimentos</div>
+            <div class="brand-pill" id="user-role-badge">Puch Gestão</div>
             <h1 id="user-welcome" onclick="abrirSetup()" title="Clique para editar seu perfil">Bem-vindo</h1>
             <p id="current-cycle-label">Ciclo Atual: 16 a 15</p>
         </div>
@@ -470,6 +470,12 @@
         </div>
         <div id="history-list"></div>
     </section>
+
+    <div style="text-align: center; margin-top: 30px; margin-bottom: 10px; font-size: 10px; color: rgba(255,255,255,0.3); font-family: 'JetBrains Mono', monospace;">
+        Puch - Gestão de Folha &copy; 2026<br>
+        Versão 1.0.0
+    </div>
+
 </div>
 
 <script>
@@ -538,7 +544,9 @@
         } else {
             document.getElementById('setup-overlay').classList.add('hidden');
             document.getElementById('user-welcome').innerText = `Olá, ${config.name.split(' ')[0]}`;
-            document.getElementById('user-role-badge').innerText = `MegaG • ${config.role}`;
+            
+            // ATUALIZADO PARA PUCH AQUI:
+            document.getElementById('user-role-badge').innerText = `Puch • ${config.role}`;
             
             document.getElementById('setup-name').value = config.name;
             document.getElementById('setup-role').value = config.role;
@@ -1143,9 +1151,3 @@
 
 </body>
 </html>
-
-
-
-
-
-
