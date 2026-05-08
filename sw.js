@@ -1,4 +1,4 @@
-const CACHE_NAME = 'megag-ponto-v5';
+const CACHE_NAME = 'puch-gestao-v6';
 const urlsToCache = [
   './index.html',
   './manifest.json',
@@ -42,4 +42,3 @@ self.addEventListener('fetch', event => {
       })
   );
 });
-
