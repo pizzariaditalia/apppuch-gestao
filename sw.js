@@ -1,4 +1,4 @@
-const CACHE_NAME = 'puch-gestao-v7';
+const CACHE_NAME = 'puch-gestao-v8';
 const urlsToCache = [
   './index.html',
   './manifest.json',
