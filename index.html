@@ -12,6 +12,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+
     <style>
         :root {
             --bg-body: #0b0e16;
@@ -40,7 +45,7 @@
 
         .container { width: 100%; max-width: 500px; margin: 0 auto; }
 
-        /* Overlays (Setup, Info, Menu e Finanças) */
+        /* Overlays (Login, Setup, Info, Menu e Finanças) */
         .overlay-bg {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--bg-body); z-index: 9999; display: flex; 
@@ -54,7 +59,6 @@
         .setup-card h2 { font-size: 24px; margin-bottom: 12px; font-weight: 800; }
         .setup-card p { color: var(--text-dim); margin-bottom: 24px; font-size: 14px; }
 
-        /* Estilos do Menu de Dúvidas */
         .info-content { text-align: left; overflow-y: auto; padding-right: 5px; }
         .info-item { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
         .info-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
@@ -79,7 +83,6 @@
         }
         .btn-icon:active { transform: scale(0.9); }
 
-        /* Dashboard de Cards */
         .dashboard { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px; }
         
         .card {
@@ -112,7 +115,6 @@
         .sub-val { font-size: 9px; color: var(--text-dim); text-align: center; font-weight: 600; }
         .sub-val span { display: block; color: var(--text-main); font-size: 11px; font-family: 'JetBrains Mono'; margin-top: 2px; }
 
-        /* Cores dos Mini Cards */
         .c-60 { border-left: 4px solid var(--accent); }
         .c-100 { border-left: 4px solid var(--warning); }
         .c-200 { border-left: 4px solid var(--danger); }
@@ -120,7 +122,6 @@
         .c-noturno { border-left: 4px solid #fde047; }
         .c-dsr { border-left: 4px solid #f472b6; }
 
-        /* Tabs */
         .tabs { display: flex; background: rgba(0,0,0,0.3); padding: 4px; border-radius: 16px; margin-bottom: 24px; gap: 4px; }
         .tab-btn {
             flex: 1; border: none; background: none; color: var(--text-dim);
@@ -181,15 +182,30 @@
 </head>
 <body>
 
+<div id="login-overlay" class="overlay-bg">
+    <div class="setup-card" style="padding: 40px 32px;">
+        <h2 style="font-size: 28px;">Acesso Puch</h2>
+        <p style="margin-bottom: 30px;">Digite seu nome e senha para acessar sua folha.</p>
+        
+        <input type="text" id="login-name" placeholder="Nome (Ex: Bruno)">
+        <input type="password" id="login-pass" placeholder="Senha">
+        
+        <button class="btn-main btn-start" onclick="fazerLogin()">Entrar</button>
+        <button class="btn-main btn-save" style="background: rgba(255,255,255,0.05); color: var(--text-dim);" onclick="criarConta()">Criar Nova Conta</button>
+        
+        <div id="login-msg" style="color: var(--danger); font-size: 13px; margin-top: 15px; font-weight: 600;"></div>
+    </div>
+</div>
+
 <div id="setup-overlay" class="overlay-bg hidden">
     <div class="setup-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <h2 style="margin: 0;">Configurações</h2>
             <button class="btn-del" onclick="fecharSetup()" style="font-size: 28px;">&times;</button>
         </div>
-        <p>Ajuste seu perfil ou faça backup dos seus dados.</p>
+        <p>Ajuste seu perfil e salário base para os cálculos.</p>
         
-        <input type="text" id="setup-name" placeholder="Digite seu nome">
+        <input type="text" id="setup-name" placeholder="Digite seu nome completo">
         <select id="setup-role">
             <option value="ajudante">Ajudante de Motorista</option>
             <option value="motorista">Motorista</option>
@@ -207,20 +223,7 @@
             <input type="text" inputmode="decimal" id="setup-goal-value" placeholder="Ex: 3500 ou 40">
         </div>
 
-        <button class="btn-main btn-start" onclick="saveSetup()">Salvar e Concluir</button>
-
-        <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--border);">
-            <h3 style="font-size: 13px; margin-bottom: 12px; color: var(--text-main); font-weight: 800;">🔄 Backup de Dados</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <button class="btn-main" style="background: var(--bg-input); color: var(--accent); padding: 12px; font-size: 12px;" onclick="exportarDados()">Exportar</button>
-                
-                <label class="btn-main" style="background: var(--bg-input); color: var(--success); padding: 12px; font-size: 12px; margin: 0; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-                    Importar
-                    <input type="file" style="display: none;" accept=".json" onchange="importarDados(event)">
-                </label>
-            </div>
-            <p style="font-size: 10px; color: var(--text-dim); margin-top: 10px;">Exporte o arquivo e importe no novo link para não perder o histórico!</p>
-        </div>
+        <button class="btn-main btn-start" onclick="saveSetup()">Salvar na Nuvem</button>
     </div>
 </div>
 
@@ -232,19 +235,20 @@
         </div>
         
         <div style="display: flex; flex-direction: column; gap: 12px;">
-            
             <button id="btn-install" class="btn-main hidden" style="background: var(--bg-input); color: #fde047; padding: 16px; text-align: left; display: flex; align-items: center; gap: 12px;" onclick="instalarApp()">
                 <span style="font-size: 18px;">📱</span> Instalar Aplicativo
             </button>
-
             <button class="btn-main" style="background: var(--bg-input); color: var(--accent); padding: 16px; text-align: left; display: flex; align-items: center; gap: 12px;" onclick="toggleMainMenu(); abrirSetup();">
-                <span style="font-size: 18px;">⚙️</span> Configurações e Backup
+                <span style="font-size: 18px;">⚙️</span> Configurações de Perfil
             </button>
             <button class="btn-main" style="background: var(--bg-input); color: var(--success); padding: 16px; text-align: left; display: flex; align-items: center; gap: 12px;" onclick="toggleMainMenu(); abrirLancamentoFinanceiro();">
                 <span style="font-size: 18px;">💰</span> Lançar Bônus / Descontos
             </button>
             <button class="btn-main" style="background: var(--bg-input); color: var(--text-main); padding: 16px; text-align: left; display: flex; align-items: center; gap: 12px;" onclick="toggleMainMenu(); toggleInfo();">
                 <span style="font-size: 18px;">📖</span> Entenda a Folha
+            </button>
+            <button class="btn-main" style="background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid var(--danger); padding: 16px; text-align: left; display: flex; align-items: center; gap: 12px;" onclick="fazerLogout()">
+                <span style="font-size: 18px;">🚪</span> Sair da Conta
             </button>
         </div>
     </div>
@@ -301,36 +305,17 @@
         <div class="info-content">
             <div class="info-item">
                 <h3>📅 DSR (Descanso Remunerado)</h3>
-                <p>
-                    A lei garante que as horas extras que você faz na semana reflitam nos seus dias de descanso (Domingos/Feriados). Como o sábado já é pago como hora extra, ele não entra nessa conta.<br><br>
-                    <strong>A conta é:</strong> (Total de Extras ÷ Dias Úteis) × Domingos.<br>
-                    <strong>Exemplo:</strong> Se você fez R$ 1.100,00 de extras no mês, tivemos 22 dias úteis (Seg a Sex) e 4 domingos no mês:<br>
-                    DSR = (1.100 ÷ 22) × 4 = <strong>R$ 200,00</strong>.
-                </p>
+                <p>A lei garante que as horas extras que você faz na semana reflitam nos seus dias de descanso. A conta é: (Total de Extras ÷ Dias Úteis) × Domingos/Feriados.</p>
             </div>
-            
             <div class="info-item">
                 <h3>🛡️ INSS (Aposentadoria)</h3>
-                <p>
-                    O desconto não é direto sobre o total, ele é "fatiado" por faixas salariais. A porcentagem vai subindo apenas sobre a parte do salário que entra na próxima faixa.<br><br>
-                    <strong>Exemplo:</strong> Se seu bruto (Base + Extras) for R$ 3.000,00:<br>
-                    - Tira 7,5% da primeira faixa (R$ 121,57)<br>
-                    - Tira 9% da segunda faixa (R$ 115,36)<br>
-                    - Tira 12% do que sobrou até 3.000 (R$ 11,66)<br>
-                    O Desconto final será de aprox. <strong>R$ 248,59</strong>.
-                </p>
+                <p>O desconto é "fatiado" por faixas salariais progressivas.</p>
             </div>
-            
             <div class="info-item">
                 <h3>💸 IRRF (Imposto de Renda)</h3>
-                <p>
-                    Esse imposto só é cobrado em cima do que "sobra" do seu salário bruto após já terem descontado o INSS. Se essa sobra for até R$ 5.000,00, você é <strong>isento (não paga nada)</strong>.<br><br>
-                    <strong>Exemplo:</strong> Salário + Extras deram R$ 6.000,00. Após descontar o INSS (R$ 640,00), sobrou R$ 5.360,00. <br>
-                    Como passou de 5 mil, aplica-se a alíquota (27,5%) menos uma dedução padrão do governo (R$ 1.030,00). O seu desconto seria de aprox. <strong>R$ 444,00</strong>.
-                </p>
+                <p>Descontado do que "sobra" do salário após o INSS, seguindo a Tabela Progressiva Oficial da Receita Federal.</p>
             </div>
         </div>
-        
         <button class="btn-main btn-save" onclick="toggleInfo()" style="margin-top: 15px; flex-shrink: 0;">Entendi, fechar</button>
     </div>
 </div>
@@ -339,8 +324,8 @@
     <header>
         <div>
             <div class="brand-pill" id="user-role-badge">Puch Gestão</div>
-            <h1 id="user-welcome" onclick="abrirSetup()" title="Clique para editar seu perfil">Bem-vindo</h1>
-            <p id="current-cycle-label">Ciclo Atual: 16 a 15</p>
+            <h1 id="user-welcome" onclick="abrirSetup()" title="Clique para editar seu perfil">Carregando...</h1>
+            <p id="current-cycle-label">Ciclo Atual</p>
         </div>
         <button class="btn-icon" onclick="toggleMainMenu()" title="Menu Principal">☰</button>
     </header>
@@ -481,17 +466,122 @@
 
     <div style="text-align: center; margin-top: 30px; margin-bottom: 10px; font-size: 10px; color: rgba(255,255,255,0.3); font-family: 'JetBrains Mono', monospace;">
         Puch - Gestão de Folha &copy; 2026<br>
-        Versão 1.0.0
+        Conectado à Nuvem ☁️
     </div>
-
 </div>
 
 <script>
+    // --- FIREBASE SETUP ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyCvjs3nuVC6jpzsT88l_FIxc08eBtoNxDQ",
+      authDomain: "puch-gestao.firebaseapp.com",
+      databaseURL: "https://puch-gestao-default-rtdb.firebaseio.com",
+      projectId: "puch-gestao",
+      storageBucket: "puch-gestao.firebasestorage.app",
+      messagingSenderId: "1080311353283",
+      appId: "1:1080311353283:web:64d34d778e271457023776"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const dbFirestore = firebase.firestore();
+
+    // Ativa suporte offline (Persistência)
+    dbFirestore.enablePersistence().catch(err => {
+        console.log("Erro de persistência offline:", err.code);
+    });
+
+    // --- VARIÁVEIS GLOBAIS (Em Memória) ---
+    const VALOR_DOBRA_TICKET = 37.04;
+    let db = [];
+    let config = null;
+    let activePonto = null;
+    let cycleConfigs = {};
+    let timerTick;
+
+    // --- LÓGICA DE LOGIN ---
+    function formatFakeEmail(name) {
+        return name.trim().toLowerCase().replace(/\s/g, '') + '@puch.com';
+    }
+
+    function mostrarMsgLogin(msg) {
+        document.getElementById('login-msg').innerText = msg;
+    }
+
+    window.fazerLogin = function() {
+        const n = document.getElementById('login-name').value;
+        const p = document.getElementById('login-pass').value;
+        if(!n || !p) return mostrarMsgLogin("Preencha nome e senha!");
+        mostrarMsgLogin("Conectando...");
+        auth.signInWithEmailAndPassword(formatFakeEmail(n), p).catch(e => {
+            mostrarMsgLogin("Nome ou senha incorretos!");
+        });
+    }
+
+    window.criarConta = function() {
+        const n = document.getElementById('login-name').value;
+        const p = document.getElementById('login-pass').value;
+        if(!n || !p) return mostrarMsgLogin("Preencha nome e senha!");
+        if(p.length < 6) return mostrarMsgLogin("A senha deve ter no mínimo 6 letras/números.");
+        mostrarMsgLogin("Criando conta...");
+        auth.createUserWithEmailAndPassword(formatFakeEmail(n), p).catch(e => {
+            if(e.code === 'auth/email-already-in-use') mostrarMsgLogin("Este nome já existe! Tente usar seu sobrenome também.");
+            else mostrarMsgLogin("Erro ao criar: " + e.message);
+        });
+    }
+
+    window.fazerLogout = function() {
+        auth.signOut();
+        toggleMainMenu();
+    }
+
+    // Monitora o estado de login
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            document.getElementById('login-overlay').classList.add('hidden');
+            carregarDadosDaNuvem(user.uid);
+        } else {
+            document.getElementById('login-overlay').classList.remove('hidden');
+            db = []; config = null; activePonto = null; cycleConfigs = {};
+            document.getElementById('login-name').value = '';
+            document.getElementById('login-pass').value = '';
+            mostrarMsgLogin('');
+        }
+    });
+
+    // --- FUNÇÃO CENTRAL DE SINCRONIZAÇÃO COM A NUVEM ---
+    function syncData() {
+        if (auth.currentUser) {
+            dbFirestore.collection('users').doc(auth.currentUser.uid).set({
+                data: db,
+                config: config,
+                active: activePonto,
+                cycleConfig: cycleConfigs
+            }).catch(e => console.error("Erro ao salvar na nuvem: ", e));
+        }
+    }
+
+    function carregarDadosDaNuvem(uid) {
+        dbFirestore.collection('users').doc(uid).get().then(doc => {
+            if(doc.exists) {
+                const dataCloud = doc.data();
+                db = dataCloud.data || [];
+                config = dataCloud.config || null;
+                activePonto = dataCloud.active || null;
+                cycleConfigs = dataCloud.cycleConfig || {};
+            }
+            init(); // Inicializa a tela com os dados
+            render(); // Desenha os gráficos e histórico
+        }).catch(e => {
+            console.error("Erro ao carregar dados", e);
+            init();
+        });
+    }
+
+    // --- PWA ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(registration => console.log('SW registrado com sucesso:', registration.scope))
-                .catch(error => console.log('Falha ao registrar SW:', error));
+            navigator.serviceWorker.register('./sw.js');
         });
     }
 
@@ -503,7 +593,7 @@
         if(btnInstall) btnInstall.classList.remove('hidden');
     });
 
-    function instalarApp() {
+    window.instalarApp = function() {
         toggleMainMenu(); 
         if (deferredPrompt) {
             deferredPrompt.prompt();
@@ -515,14 +605,6 @@
             });
         }
     }
-
-    const VALOR_DOBRA_TICKET = 37.04;
-
-    let db = JSON.parse(localStorage.getItem('megag_v3_data')) || [];
-    let config = JSON.parse(localStorage.getItem('megag_v3_config')) || null;
-    let activePonto = JSON.parse(localStorage.getItem('megag_v3_active')) || null;
-    let cycleConfigs = JSON.parse(localStorage.getItem('megag_v3_cycle_config')) || {};
-    let timerTick;
 
     const getHojeFormatado = () => {
         const now = new Date();
@@ -554,45 +636,28 @@
                 startTimerUI();
             }
         }
+        document.getElementById('man-date').value = getHojeFormatado();
+        document.getElementById('fin-date').value = getHojeFormatado();
     }
 
-    function toggleMainMenu() {
-        document.getElementById('main-menu-overlay').classList.toggle('hidden');
-    }
-
-    function abrirSetup() {
-        document.getElementById('setup-overlay').classList.remove('hidden');
-    }
-
-    function fecharSetup() {
+    window.toggleMainMenu = function() { document.getElementById('main-menu-overlay').classList.toggle('hidden'); }
+    window.abrirSetup = function() { document.getElementById('setup-overlay').classList.remove('hidden'); }
+    window.fecharSetup = function() {
         if (!config) return alert("Por favor, conclua a configuração inicial.");
         document.getElementById('setup-overlay').classList.add('hidden');
     }
+    window.toggleInfo = function() { document.getElementById('info-overlay').classList.toggle('hidden'); }
+    window.abrirLancamentoFinanceiro = function() { document.getElementById('finance-overlay').classList.remove('hidden'); }
+    window.fecharLancamentoFinanceiro = function() { document.getElementById('finance-overlay').classList.add('hidden'); }
 
-    function toggleInfo() {
-        document.getElementById('info-overlay').classList.toggle('hidden');
-    }
-
-    function abrirLancamentoFinanceiro() {
-        document.getElementById('fin-date').value = getHojeFormatado();
-        document.getElementById('finance-overlay').classList.remove('hidden');
-    }
-
-    function fecharLancamentoFinanceiro() {
-        document.getElementById('finance-overlay').classList.add('hidden');
-    }
-
-    function toggleFinBase() {
+    window.toggleFinBase = function() {
         const type = document.getElementById('fin-value-type').value;
         const container = document.getElementById('fin-base-container');
-        if(type === 'porcentagem') {
-            container.classList.remove('hidden');
-        } else {
-            container.classList.add('hidden');
-        }
+        if(type === 'porcentagem') container.classList.remove('hidden');
+        else container.classList.add('hidden');
     }
 
-    function toggleManualFields() {
+    window.toggleManualFields = function() {
         const type = document.getElementById('man-type').value;
         if (type === 'banco_add_manual' || type === 'banco_rem_manual') {
             document.getElementById('time-inputs-container').classList.add('hidden');
@@ -603,102 +668,54 @@
         }
     }
 
-    function saveSetup() {
+    window.saveSetup = function() {
         const name = document.getElementById('setup-name').value;
         const role = document.getElementById('setup-role').value;
         const goalType = document.getElementById('setup-goal-type').value;
         
         let baseSalaryStr = document.getElementById('setup-salary').value;
-        if(baseSalaryStr.includes(',') && baseSalaryStr.includes('.')) {
-            baseSalaryStr = baseSalaryStr.replace(/\./g, '').replace(',', '.');
-        } else if (baseSalaryStr.includes(',')) {
-            baseSalaryStr = baseSalaryStr.replace(',', '.');
-        }
+        if(baseSalaryStr.includes(',') && baseSalaryStr.includes('.')) baseSalaryStr = baseSalaryStr.replace(/\./g, '').replace(',', '.');
+        else if (baseSalaryStr.includes(',')) baseSalaryStr = baseSalaryStr.replace(',', '.');
         const baseSalary = parseFloat(baseSalaryStr) || 0;
 
         let goalValueStr = document.getElementById('setup-goal-value').value;
-        if(goalValueStr.includes(',') && goalValueStr.includes('.')) {
-            goalValueStr = goalValueStr.replace(/\./g, '').replace(',', '.');
-        } else if (goalValueStr.includes(',')) {
-            goalValueStr = goalValueStr.replace(',', '.');
-        }
+        if(goalValueStr.includes(',') && goalValueStr.includes('.')) goalValueStr = goalValueStr.replace(/\./g, '').replace(',', '.');
+        else if (goalValueStr.includes(',')) goalValueStr = goalValueStr.replace(',', '.');
         const goalValue = parseFloat(goalValueStr) || 0;
         
         if (!name) return alert("Por favor, digite seu nome.");
         
         config = { name, role, baseSalary, goalType, goalValue };
-        localStorage.setItem('megag_v3_config', JSON.stringify(config));
+        syncData(); // Sincroniza com a nuvem
         init();
+        render();
     }
 
-    function salvarLancamentoFinanceiro() {
+    window.salvarLancamentoFinanceiro = function() {
         const type = document.getElementById('fin-type').value;
         const name = document.getElementById('fin-name').value;
-        
         let valStr = document.getElementById('fin-value').value;
-        if(valStr.includes(',') && valStr.includes('.')) {
-            valStr = valStr.replace(/\./g, '').replace(',', '.');
-        } else if (valStr.includes(',')) {
-            valStr = valStr.replace(',', '.');
-        }
+        if(valStr.includes(',') && valStr.includes('.')) valStr = valStr.replace(/\./g, '').replace(',', '.');
+        else if (valStr.includes(',')) valStr = valStr.replace(',', '.');
         
         const value = parseFloat(valStr);
         const date = document.getElementById('fin-date').value;
         const valueType = document.getElementById('fin-value-type').value;
         const baseType = document.getElementById('fin-base').value;
 
-        if(!name || isNaN(value) || value <= 0 || !date) {
-            return alert("Ops! Por favor, preencha a descrição e digite um valor numérico válido (ex: 150,00).");
-        }
+        if(!name || isNaN(value) || value <= 0 || !date) return alert("Ops! Preencha a descrição e digite um valor numérico válido (ex: 150,00).");
 
         db.push({ id: Date.now(), date, type, name, value, valueType, baseType });
-        localStorage.setItem('megag_v3_data', JSON.stringify(db));
+        syncData(); // Sincroniza com a nuvem
         
         fecharLancamentoFinanceiro();
         document.getElementById('fin-name').value = '';
         document.getElementById('fin-value').value = '';
-        
         render();
         switchTab('tab-history', document.querySelectorAll('.tab-btn')[2]);
     }
 
-    function exportarDados() {
-        const dadosCompletos = {
-            data: localStorage.getItem('megag_v3_data'),
-            config: localStorage.getItem('megag_v3_config'),
-            active: localStorage.getItem('megag_v3_active'),
-            cycleConfig: localStorage.getItem('megag_v3_cycle_config')
-        };
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dadosCompletos));
-        const a = document.createElement('a');
-        a.href = dataStr;
-        a.download = "puch_backup.json";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-    }
-
-    function importarDados(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const importado = JSON.parse(e.target.result);
-                if (importado.data) localStorage.setItem('megag_v3_data', importado.data);
-                if (importado.config) localStorage.setItem('megag_v3_config', importado.config);
-                if (importado.active) localStorage.setItem('megag_v3_active', importado.active);
-                if (importado.cycleConfig) localStorage.setItem('megag_v3_cycle_config', importado.cycleConfig);
-                
-                alert("Dados importados com sucesso! O aplicativo será recarregado.");
-                location.reload();
-            } catch (err) {
-                alert("Erro ao importar o arquivo. Verifique se escolheu o arquivo correto de backup.");
-            }
-        };
-        reader.readAsText(file);
-    }
-
+    // Matemática da CLT Oficial (Erro Corrigido)
     function calcINSS(bruto) {
         let imposto = 0;
         const faixas = [
@@ -720,7 +737,7 @@
     }
 
     function calcIRRF(baseIR) {
-        // Tabela Progressiva Oficial
+        // Tabela Progressiva Oficial da Receita (Erro Corrigido)
         if (baseIR <= 2259.20) return 0;
         if (baseIR <= 2826.65) return (baseIR * 0.075) - 169.44;
         if (baseIR <= 3751.05) return (baseIR * 0.15) - 381.44;
@@ -732,10 +749,7 @@
         const d = new Date(dateInput + "T12:00:00");
         let m = d.getMonth();
         let y = d.getFullYear();
-        if (d.getDate() >= 16) {
-            m++;
-            if (m > 11) { m = 0; y++; }
-        }
+        if (d.getDate() >= 16) { m++; if (m > 11) { m = 0; y++; } }
         return `${y}-${String(m + 1).padStart(2, '0')}`;
     }
 
@@ -750,10 +764,8 @@
             let d = new Date();
             d.setMonth(today.getMonth() + i);
             let key = getCycleKey(d.toISOString().split('T')[0]);
-            
             let [y, mStr] = key.split('-');
             let mNum = parseInt(mStr); 
-            
             let currentMName = months[mNum - 1];
             let prevMName = months[mNum - 2 < 0 ? 11 : mNum - 2];
             
@@ -765,7 +777,7 @@
         }
     }
 
-    function handleCycleChange() {
+    window.handleCycleChange = function() {
         const targetCycle = document.getElementById('cycle-filter').value;
         const [year, month] = targetCycle.split('-').map(Number);
         
@@ -775,44 +787,33 @@
         } else {
             const dataFim = new Date(year, month - 1, 15);
             const dataInicio = new Date(year, month - 2, 16);
-            
-            let diasUteis = 0;
-            let diasFolga = 0;
-            
+            let diasUteis = 0, diasFolga = 0;
             let dataAuxiliar = new Date(dataInicio);
             while (dataAuxiliar <= dataFim) {
                 const diaDaSemana = dataAuxiliar.getDay();
-                
-                if (diaDaSemana === 0) {
-                    diasFolga++;
-                } else if (diaDaSemana >= 1 && diaDaSemana <= 5) {
-                    diasUteis++;
-                }
+                if (diaDaSemana === 0) diasFolga++;
+                else if (diaDaSemana >= 1 && diaDaSemana <= 5) diasUteis++;
                 dataAuxiliar.setDate(dataAuxiliar.getDate() + 1);
             }
-            
             document.getElementById('input-dias-uteis').value = diasUteis;
             document.getElementById('input-folgas').value = diasFolga;
         }
-        
         render();
     }
 
-    function updateCycleConfig() {
+    window.updateCycleConfig = function() {
         const targetCycle = document.getElementById('cycle-filter').value;
         const uteis = parseFloat(document.getElementById('input-dias-uteis').value) || 0;
         const folgas = parseFloat(document.getElementById('input-folgas').value) || 0;
-        
         cycleConfigs[targetCycle] = { uteis, folgas };
-        localStorage.setItem('megag_v3_cycle_config', JSON.stringify(cycleConfigs));
-        
+        syncData(); // Sincroniza configuração de DSR
         render();
     }
 
-    function handleTimer() {
+    window.handleTimer = function() {
         if (!activePonto) {
             activePonto = { start: new Date().getTime() };
-            localStorage.setItem('megag_v3_active', JSON.stringify(activePonto));
+            syncData(); // Salva estado do cronômetro
             startTimerUI();
         } else {
             if (confirm("Deseja finalizar o turno agora?")) {
@@ -828,9 +829,8 @@
                 if(start.getDay() === 0) type = "folga";
 
                 db.push({ id: Date.now(), date: dataStr, in: hIn, out: hOut, type: type });
-                localStorage.setItem('megag_v3_data', JSON.stringify(db));
                 activePonto = null;
-                localStorage.removeItem('megag_v3_active');
+                syncData(); // Sincroniza turno finalizado
                 stopTimerUI();
                 render();
                 switchTab('tab-history', document.querySelectorAll('.tab-btn')[2]);
@@ -842,23 +842,18 @@
         const btn = document.getElementById('btn-timer');
         btn.innerText = "Finalizar Turno"; 
         btn.className = "btn-main btn-stop";
-        
-        const timerVal = document.getElementById('timer-val');
-        timerVal.classList.add('running');
-        
-        const status = document.getElementById('timer-status');
-        status.innerText = "Turno em andamento...";
-        status.style.color = "var(--success)";
+        document.getElementById('timer-val').classList.add('running');
+        document.getElementById('timer-status').innerText = "Turno em andamento...";
+        document.getElementById('timer-status').style.color = "var(--success)";
 
         const atualizarCronometro = () => {
+            if(!activePonto) return;
             const diff = new Date().getTime() - activePonto.start;
             const h = Math.floor(diff / 3600000);
             const m = Math.floor((diff % 3600000) / 60000);
             const s = Math.floor((diff % 60000) / 1000);
-            timerVal.innerText = 
-                `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            document.getElementById('timer-val').innerText = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
         };
-
         atualizarCronometro(); 
         timerTick = setInterval(atualizarCronometro, 1000);
     }
@@ -867,13 +862,10 @@
         clearInterval(timerTick);
         document.getElementById('timer-val').innerText = "00:00:00";
         document.getElementById('timer-val').classList.remove('running');
-        
         document.getElementById('btn-timer').innerText = "Iniciar Jornada";
         document.getElementById('btn-timer').className = "btn-main btn-start";
-        
-        const status = document.getElementById('timer-status');
-        status.innerText = "Aguardando início...";
-        status.style.color = "var(--text-dim)";
+        document.getElementById('timer-status').innerText = "Aguardando início...";
+        document.getElementById('timer-status').style.color = "var(--text-dim)";
     }
 
     function calcularHorasNoturnas(data, entradaStr, saidaStr) {
@@ -886,9 +878,7 @@
 
         while (checagem < dataFim) {
             const hora = checagem.getHours();
-            if (hora >= 22 || hora < 5) {
-                minutosNoturnos++;
-            }
+            if (hora >= 22 || hora < 5) minutosNoturnos++;
             checagem.setMinutes(checagem.getMinutes() + 1);
         }
         return (minutosNoturnos / 60) * 1.142857;
@@ -923,16 +913,13 @@
         } else if(reg.type === 'banco') {
             b = -meta;
         } else if (reg.type === 'banco_add_manual' || reg.type === 'banco_rem_manual') {
-            
             let h = reg.hours;
-            
             if (h === undefined || h === null) {
                 const tIn = new Date(`${reg.date}T${reg.in}`);
                 let tOut = new Date(`${reg.date}T${reg.out}`);
                 if (tOut < tIn) tOut.setDate(tOut.getDate() + 1);
                 h = (tOut - tIn) / 3600000;
             }
-
             liq = h;
             if (reg.type === 'banco_add_manual') b = h;
             if (reg.type === 'banco_rem_manual') b = -h;
@@ -941,9 +928,10 @@
         return { liq, b, e60, e100, e200, tkt, horasNoturnas };
     }
 
-    function render() {
+    window.render = function() {
+        if(!config) return;
+
         const targetCycle = document.getElementById('cycle-filter').value;
-        
         const [tYear, tMonth] = targetCycle.split('-').map(Number);
         const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
         const mAtual = monthNames[tMonth - 1];
@@ -962,11 +950,9 @@
             bancoTotalGlobal += c.b;
         });
 
-        // --- INÍCIO DA CORREÇÃO MATEMÁTICA ---
-        // Pega o salário base do usuário configurado e calcula a hora (Divisor 220)
+        // --- CÁLCULO OFICIAL DA HORA EXTRA ---
         const baseSalary = config.baseSalary || 0;
-        const valorHoraBase = baseSalary / 220;
-        
+        const valorHoraBase = baseSalary / 220; // Padrão 220h CLT
         const valorH60 = valorHoraBase * 1.60;
         const valorH100 = valorHoraBase * 2.00;
         const valorH200 = valorHoraBase * 3.00;
@@ -985,7 +971,6 @@
         const money100 = total100 * valorH100;
         const money200 = total200 * valorH200;
         const moneyNoturnoTotal = totalNoturnoH * valorAdicNoturno;
-        // --- FIM DA CORREÇÃO MATEMÁTICA ---
         
         const diasUteisInput = parseFloat(document.getElementById('input-dias-uteis').value) || 22;
         const folgasInput = parseFloat(document.getElementById('input-folgas').value) || 4;
@@ -998,11 +983,8 @@
         cycleItems.forEach(reg => {
             if (reg.type === 'bonus') {
                 let val = 0;
-                if(reg.valueType === 'porcentagem') {
-                    val = reg.baseType === 'base' ? (baseSalary * reg.value / 100) : (brutoPonto * reg.value / 100);
-                } else {
-                    val = reg.value || 0;
-                }
+                if(reg.valueType === 'porcentagem') val = reg.baseType === 'base' ? (baseSalary * reg.value / 100) : (brutoPonto * reg.value / 100);
+                else val = reg.value || 0;
                 reg.calculatedValue = val; 
                 totalBonus += val;
             }
@@ -1015,11 +997,8 @@
         cycleItems.forEach(reg => {
             if (reg.type === 'desconto') {
                 let val = 0;
-                if(reg.valueType === 'porcentagem') {
-                    val = reg.baseType === 'base' ? (baseSalary * reg.value / 100) : (brutoTotalCompleto * reg.value / 100);
-                } else {
-                    val = reg.value || 0;
-                }
+                if(reg.valueType === 'porcentagem') val = reg.baseType === 'base' ? (baseSalary * reg.value / 100) : (brutoTotalCompleto * reg.value / 100);
+                else val = reg.value || 0;
                 reg.calculatedValue = val;
                 totalDescontoManual += val;
             }
@@ -1036,9 +1015,7 @@
         const goalContainer = document.getElementById('goal-container');
         if (config.goalType && config.goalType !== 'none' && config.goalValue > 0) {
             goalContainer.classList.remove('hidden');
-            let currentProgress = 0;
-            let goalText = '';
-            
+            let currentProgress = 0, goalText = '';
             if (config.goalType === 'money') {
                 currentProgress = liquido;
                 goalText = `Meta: ${config.goalValue.toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}`;
@@ -1046,14 +1023,11 @@
                 currentProgress = total60 + total100 + total200;
                 goalText = `Meta: ${config.goalValue}h extras`;
             }
-            
             let pct = (currentProgress / config.goalValue) * 100;
             if (pct > 100) pct = 100;
-            
             document.getElementById('goal-label').innerText = goalText;
             document.getElementById('goal-pct').innerText = `${Math.floor(pct)}%`;
             document.getElementById('goal-bar').style.width = `${pct}%`;
-            
             if (pct >= 100) {
                 document.getElementById('goal-bar').style.background = 'var(--accent)';
                 document.getElementById('goal-pct').style.color = 'var(--accent)';
@@ -1061,9 +1035,7 @@
                 document.getElementById('goal-bar').style.background = 'var(--success)';
                 document.getElementById('goal-pct').style.color = 'var(--text-dim)';
             }
-        } else {
-            goalContainer.classList.add('hidden');
-        }
+        } else { goalContainer.classList.add('hidden'); }
 
         document.getElementById('sub-base').innerText = baseSalary.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
         document.getElementById('sub-desc').innerText = `-${totalDescontosGerais.toLocaleString('pt-BR', {style:'currency', currency:'BRL'})}`;
@@ -1091,11 +1063,8 @@
                 const color = isBonus ? 'var(--success)' : 'var(--danger)';
                 const sign = isBonus ? '+' : '-';
                 const valRender = reg.calculatedValue || 0;
-                
                 let infoTag = 'Valor Fixo';
-                if (reg.valueType === 'porcentagem') {
-                    infoTag = `${reg.value}% sobre ${reg.baseType === 'base' ? 'Sal. Base' : 'Folha Completa'}`;
-                }
+                if (reg.valueType === 'porcentagem') infoTag = `${reg.value}% sobre ${reg.baseType === 'base' ? 'Sal. Base' : 'Folha Completa'}`;
 
                 listDiv.innerHTML += `
                     <div class="history-item" style="border-left: 4px solid ${color}; padding-left: 12px;">
@@ -1139,31 +1108,23 @@
         });
     }
 
-    function addManual() {
+    window.addManual = function() {
         const date = document.getElementById('man-date').value;
         const type = document.getElementById('man-type').value;
-        
-        let hIn = "";
-        let hOut = "";
-        let valHours = null;
+        let hIn = "", hOut = "", valHours = null;
 
         if (type === 'banco_add_manual' || type === 'banco_rem_manual') {
             valHours = parseFloat(document.getElementById('man-hours').value);
-            if (!date || isNaN(valHours) || valHours <= 0) {
-                return alert("Por favor, preencha a data e a quantidade de horas maior que zero.");
-            }
-            hIn = null; 
-            hOut = null;
+            if (!date || isNaN(valHours) || valHours <= 0) return alert("Por favor, preencha a data e a quantidade de horas maior que zero.");
+            hIn = null; hOut = null;
         } else {
             hIn = document.getElementById('man-in').value;
             hOut = document.getElementById('man-out').value;
-            if(!date || !hOut) {
-                return alert("Por favor, preencha a data e a hora de saída.");
-            }
+            if(!date || !hOut) return alert("Por favor, preencha a data e a hora de saída.");
         }
 
         db.push({ id: Date.now(), date, in: hIn, out: hOut, type, hours: valHours });
-        localStorage.setItem('megag_v3_data', JSON.stringify(db));
+        syncData(); // Sincroniza com a nuvem
         render();
         switchTab('tab-history', document.querySelectorAll('.tab-btn')[2]);
         
@@ -1171,23 +1132,20 @@
         document.getElementById('man-hours').value = "";
     }
 
-    function removeReg(id) {
+    window.removeReg = function(id) {
         if(confirm("Excluir este registro?")) {
             db = db.filter(r => r.id !== id);
-            localStorage.setItem('megag_v3_data', JSON.stringify(db));
+            syncData(); // Sincroniza com a nuvem
             render();
         }
     }
 
-    function switchTab(id, btn) {
+    window.switchTab = function(id, btn) {
         document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(id).classList.add('active');
         btn.classList.add('active');
     }
-
-    document.getElementById('man-date').value = getHojeFormatado();
-    init();
 
 </script>
 
