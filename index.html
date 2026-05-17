@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Puch - Gestão de Folha</title>
     
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script>eruda.init();</script>
+    
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#0b0e16">
     <link rel="apple-touch-icon" href="./puch-icon.png">
@@ -514,6 +517,7 @@
         if(!n || !p) return mostrarMsgLogin("Preencha nome e senha!");
         mostrarMsgLogin("Conectando...");
         auth.signInWithEmailAndPassword(formatFakeEmail(n), p).catch(e => {
+            console.error("Erro no login:", e);
             mostrarMsgLogin("Nome ou senha incorretos!");
         });
     }
@@ -525,6 +529,7 @@
         if(p.length < 6) return mostrarMsgLogin("A senha deve ter no mínimo 6 letras/números.");
         mostrarMsgLogin("Criando conta...");
         auth.createUserWithEmailAndPassword(formatFakeEmail(n), p).catch(e => {
+            console.error("Erro ao criar conta:", e);
             if(e.code === 'auth/email-already-in-use') mostrarMsgLogin("Este nome já existe! Tente usar seu sobrenome também.");
             else mostrarMsgLogin("Erro ao criar: " + e.message);
         });
@@ -578,10 +583,21 @@
         });
     }
 
-    // --- PWA ---
+    // --- PWA com ATUALIZAÇÃO FORÇADA ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js');
+            navigator.serviceWorker.register('./sw.js').then(reg => {
+                console.log('SW registrado com sucesso');
+            });
+        });
+        
+        // FICA VIGIANDO: Se o SW atualizar nos bastidores, ele recarrega a tela na hora!
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+                window.location.reload();
+                refreshing = true;
+            }
         });
     }
 
@@ -715,7 +731,6 @@
         switchTab('tab-history', document.querySelectorAll('.tab-btn')[2]);
     }
 
-    // Matemática da CLT Oficial (Erro Corrigido)
     function calcINSS(bruto) {
         let imposto = 0;
         const faixas = [
@@ -737,7 +752,6 @@
     }
 
     function calcIRRF(baseIR) {
-        // Tabela Progressiva Oficial da Receita (Erro Corrigido)
         if (baseIR <= 2259.20) return 0;
         if (baseIR <= 2826.65) return (baseIR * 0.075) - 169.44;
         if (baseIR <= 3751.05) return (baseIR * 0.15) - 381.44;
@@ -806,14 +820,14 @@
         const uteis = parseFloat(document.getElementById('input-dias-uteis').value) || 0;
         const folgas = parseFloat(document.getElementById('input-folgas').value) || 0;
         cycleConfigs[targetCycle] = { uteis, folgas };
-        syncData(); // Sincroniza configuração de DSR
+        syncData(); 
         render();
     }
 
     window.handleTimer = function() {
         if (!activePonto) {
             activePonto = { start: new Date().getTime() };
-            syncData(); // Salva estado do cronômetro
+            syncData();
             startTimerUI();
         } else {
             if (confirm("Deseja finalizar o turno agora?")) {
@@ -830,7 +844,7 @@
 
                 db.push({ id: Date.now(), date: dataStr, in: hIn, out: hOut, type: type });
                 activePonto = null;
-                syncData(); // Sincroniza turno finalizado
+                syncData(); 
                 stopTimerUI();
                 render();
                 switchTab('tab-history', document.querySelectorAll('.tab-btn')[2]);
@@ -950,9 +964,8 @@
             bancoTotalGlobal += c.b;
         });
 
-        // --- CÁLCULO OFICIAL DA HORA EXTRA ---
         const baseSalary = config.baseSalary || 0;
-        const valorHoraBase = baseSalary / 220; // Padrão 220h CLT
+        const valorHoraBase = baseSalary / 220; 
         const valorH60 = valorHoraBase * 1.60;
         const valorH100 = valorHoraBase * 2.00;
         const valorH200 = valorHoraBase * 3.00;
@@ -1124,7 +1137,7 @@
         }
 
         db.push({ id: Date.now(), date, in: hIn, out: hOut, type, hours: valHours });
-        syncData(); // Sincroniza com a nuvem
+        syncData(); 
         render();
         switchTab('tab-history', document.querySelectorAll('.tab-btn')[2]);
         
@@ -1135,7 +1148,7 @@
     window.removeReg = function(id) {
         if(confirm("Excluir este registro?")) {
             db = db.filter(r => r.id !== id);
-            syncData(); // Sincroniza com a nuvem
+            syncData();
             render();
         }
     }
