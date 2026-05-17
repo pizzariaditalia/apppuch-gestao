@@ -1,12 +1,13 @@
-const CACHE_NAME = 'puch-gestao-v20';
+const CACHE_NAME = 'puch-gestao-v11';
 const urlsToCache = [
   './index.html',
   './manifest.json',
   './puch-icon.png'
 ];
 
-// Instalação: Adiciona os arquivos principais no cache
+// Instalação: Baixa os arquivos e FORÇA a ativação imediata (sem esperar fechar o app)
 self.addEventListener('install', event => {
+  self.skipWaiting(); // Pulo do gato para não prender o cache!
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
@@ -16,7 +17,7 @@ self.addEventListener('install', event => {
   );
 });
 
-// Ativação: Limpa caches antigos se a versão (CACHE_NAME) mudar
+// Ativação: Apaga a versão velha e assume o controle do celular na hora
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
@@ -28,16 +29,15 @@ self.addEventListener('activate', event => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim()) // Assume o controle do cliente web
   );
 });
 
-// Fetch: Intercepta as requisições para fazer o app funcionar offline
+// Fetch: Tenta pegar do cache, se não tiver, busca na rede
 self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Retorna do cache se encontrar, senão busca na rede
         return response || fetch(event.request);
       })
   );
