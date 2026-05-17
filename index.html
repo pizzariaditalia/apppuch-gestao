@@ -487,7 +487,6 @@
 </div>
 
 <script>
-    // --- REGISTRO DO SERVICE WORKER (PWA) ---
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js')
@@ -496,7 +495,6 @@
         });
     }
 
-    // --- LÓGICA DE INSTALAÇÃO DO PWA (Botão) ---
     let deferredPrompt;
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
@@ -517,12 +515,6 @@
             });
         }
     }
-
-    // Configurações Salariais
-    const RATES = {
-        ajudante: { base: 9.57, h60: 15.31, h100: 19.22, h200: 28.83 },
-        motorista: { base: 11.82, h60: 18.91, h100: 23.64, h200: 35.46 }
-    };
 
     const VALOR_DOBRA_TICKET = 37.04;
 
@@ -728,11 +720,12 @@
     }
 
     function calcIRRF(baseIR) {
-        if (baseIR <= 5000) return 0;
-        const aliq = 0.275;
-        const deducao = 1030.27; 
-        let imposto = (baseIR * aliq) - deducao;
-        return Math.max(0, imposto);
+        // Tabela Progressiva Oficial
+        if (baseIR <= 2259.20) return 0;
+        if (baseIR <= 2826.65) return (baseIR * 0.075) - 169.44;
+        if (baseIR <= 3751.05) return (baseIR * 0.15) - 381.44;
+        if (baseIR <= 4664.68) return (baseIR * 0.225) - 662.77;
+        return (baseIR * 0.275) - 896.00;
     }
 
     function getCycleKey(dateInput) {
@@ -931,10 +924,8 @@
             b = -meta;
         } else if (reg.type === 'banco_add_manual' || reg.type === 'banco_rem_manual') {
             
-            // Lógica ajustada: Pega APENAS as horas digitadas, sem calcular relógio
             let h = reg.hours;
             
-            // Fallback caso seja um registro muito antigo que ainda usava relógio
             if (h === undefined || h === null) {
                 const tIn = new Date(`${reg.date}T${reg.in}`);
                 let tOut = new Date(`${reg.date}T${reg.out}`);
@@ -971,8 +962,17 @@
             bancoTotalGlobal += c.b;
         });
 
+        // --- INÍCIO DA CORREÇÃO MATEMÁTICA ---
+        // Pega o salário base do usuário configurado e calcula a hora (Divisor 220)
+        const baseSalary = config.baseSalary || 0;
+        const valorHoraBase = baseSalary / 220;
+        
+        const valorH60 = valorHoraBase * 1.60;
+        const valorH100 = valorHoraBase * 2.00;
+        const valorH200 = valorHoraBase * 3.00;
+        const valorAdicNoturno = valorHoraBase * 0.20;
+
         let total60 = 0, total100 = 0, total200 = 0, totalTkt = 0, totalNoturnoH = 0;
-        const currentRates = RATES[config.role];
 
         cycleItems.forEach(reg => {
             if(reg.type === 'bonus' || reg.type === 'desconto') return;
@@ -981,16 +981,16 @@
             totalNoturnoH += c.horasNoturnas;
         });
 
-        const money60 = total60 * currentRates.h60;
-        const money100 = total100 * currentRates.h100;
-        const money200 = total200 * currentRates.h200;
-        const moneyNoturnoTotal = totalNoturnoH * (currentRates.base * 0.20);
+        const money60 = total60 * valorH60;
+        const money100 = total100 * valorH100;
+        const money200 = total200 * valorH200;
+        const moneyNoturnoTotal = totalNoturnoH * valorAdicNoturno;
+        // --- FIM DA CORREÇÃO MATEMÁTICA ---
         
         const diasUteisInput = parseFloat(document.getElementById('input-dias-uteis').value) || 22;
         const folgasInput = parseFloat(document.getElementById('input-folgas').value) || 4;
         const valorDSR = ((money60 + money100 + money200 + moneyNoturnoTotal) / diasUteisInput) * folgasInput;
 
-        const baseSalary = config.baseSalary || 0;
         const variaveisPonto = money60 + money100 + money200 + moneyNoturnoTotal + valorDSR;
         const brutoPonto = baseSalary + variaveisPonto;
 
@@ -1118,7 +1118,6 @@
                 if(c.b !== 0) tagHtml += `<span class="tag tag-banco">Banco: ${c.b.toFixed(1)}h</span>`;
                 if(c.horasNoturnas > 0) tagHtml += `<span class="tag tag-noturno">Noturno: ${c.horasNoturnas.toFixed(1)}h</span>`;
 
-                // LÓGICA DE RENDERIZAÇÃO DO TÍTULO CORRIGIDA
                 let labelText = `${reg.in} ➔ ${reg.out}`;
                 if (reg.type === 'banco_add_manual') labelText = `Ajuste Banco (+)`;
                 if (reg.type === 'banco_rem_manual') labelText = `Ajuste Banco (-)`;
@@ -1153,7 +1152,6 @@
             if (!date || isNaN(valHours) || valHours <= 0) {
                 return alert("Por favor, preencha a data e a quantidade de horas maior que zero.");
             }
-            // Força nulo para nunca mais tentar desenhar relógio nessa opção
             hIn = null; 
             hOut = null;
         } else {
